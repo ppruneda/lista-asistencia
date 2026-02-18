@@ -6,34 +6,29 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    let snapshot = await adminDb
-      .collection("sessions")
-      .where("phase", "==", "entrada")
-      .limit(1)
-      .get();
-
-    if (snapshot.empty) {
-      snapshot = await adminDb
-        .collection("sessions")
-        .where("phase", "==", "salida")
-        .limit(1)
-        .get();
+    const allSessions = await adminDb.collection("sessions").get();
+    
+    let activeSession = null;
+    
+    for (const doc of allSessions.docs) {
+      const data = doc.data();
+      if (data.phase === "entrada" || data.phase === "salida") {
+        activeSession = { id: doc.id, ...data };
+        break;
+      }
     }
 
-    if (snapshot.empty) {
+    if (!activeSession) {
       return NextResponse.json({ active: false }, {
         headers: { "Cache-Control": "no-store, max-age=0" },
       });
     }
 
-    const doc = snapshot.docs[0];
-    const data = doc.data();
-
     return NextResponse.json({
       active: true,
-      sessionId: doc.id,
-      phase: data.phase,
-      label: data.label,
+      sessionId: activeSession.id,
+      phase: activeSession.phase,
+      label: activeSession.label,
     }, {
       headers: { "Cache-Control": "no-store, max-age=0" },
     });
