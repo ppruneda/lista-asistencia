@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============ HELPER FUNCTIONS ============
+
+    // Check if the request is from the authenticated professor
+    function isProfesor() {
+      return request.auth != null
+        && request.auth.uid == 'hjnYv0cw2XOTV1aGkt9IJyEfY133';
+    }
+
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // ============ CONFIG ============
+    // Only the professor can read and write config
+    match /config/{document} {
+      allow read, write: if isProfesor();
+    }
+
+    // ============ SESSIONS ============
+    // Anyone can read sessions (students need to check if there's an active session)
+    // Only the professor can create/update/delete sessions
+    match /sessions/{sessionId} {
+      allow read: if true;
+      allow write: if isProfesor();
+    }
+
+    // ============ STUDENTS ============
+    // Students can create their own document (self-registration during check-in)
+    // Only the professor can read all students and update them
+    match /students/{cuenta} {
+      allow create: if true;
+      allow read, update, delete: if isProfesor();
+    }
+
+    // ============ RECORDS ============
+    // Records are created by the server (Admin SDK), so deny all client writes
+    // Only the professor can read records
+    match /records/{recordId} {
+      allow read: if isProfesor();
+      allow write: if false;
+    }
+  }
+}
