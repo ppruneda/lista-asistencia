@@ -8,17 +8,21 @@ export async function GET() {
   try {
     const allSessions = await adminDb.collection("sessions").get();
     
-    let activeSession = null;
+    let activeId = "";
+    let activePhase = "";
+    let activeLabel = "";
     
     for (const doc of allSessions.docs) {
       const data = doc.data();
       if (data.phase === "entrada" || data.phase === "salida") {
-        activeSession = { id: doc.id, ...data };
+        activeId = doc.id;
+        activePhase = data.phase;
+        activeLabel = data.label;
         break;
       }
     }
 
-    if (!activeSession) {
+    if (!activeId) {
       return NextResponse.json({ active: false }, {
         headers: { "Cache-Control": "no-store, max-age=0" },
       });
@@ -26,9 +30,9 @@ export async function GET() {
 
     return NextResponse.json({
       active: true,
-      sessionId: activeSession.id,
-      phase: activeSession.phase,
-      label: activeSession.label,
+      sessionId: activeId,
+      phase: activePhase,
+      label: activeLabel,
     }, {
       headers: { "Cache-Control": "no-store, max-age=0" },
     });
