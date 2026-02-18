@@ -11,7 +11,7 @@ interface CodigoRotativoProps {
 
 export default function CodigoRotativo({ sessionId, initialToken, phase }: CodigoRotativoProps) {
   const [token, setToken] = useState(initialToken);
-  const [secondsLeft, setSecondsLeft] = useState(30);
+  const [secondsLeft, setSecondsLeft] = useState(120);
   const [rotating, setRotating] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const rotateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -26,7 +26,7 @@ export default function CodigoRotativo({ sessionId, initialToken, phase }: Codig
         body: JSON.stringify({ sessionId }),
       });
       const data = await response.json();
-      if (data.success) { setToken(data.token); setSecondsLeft(30); }
+      if (data.success) { setToken(data.token); setSecondsLeft(120); }
     } catch (err) { console.error("Error rotating token:", err); }
     finally { setRotating(false); }
   }, [sessionId, rotating]);
@@ -45,17 +45,22 @@ export default function CodigoRotativo({ sessionId, initialToken, phase }: Codig
     return () => { if (rotateTimeoutRef.current) clearTimeout(rotateTimeoutRef.current); };
   }, [secondsLeft, rotateToken]);
 
-  useEffect(() => { setToken(initialToken); setSecondsLeft(30); }, [initialToken]);
+  useEffect(() => { setToken(initialToken); setSecondsLeft(120); }, [initialToken]);
 
   const getTimerColor = () => {
-    if (secondsLeft > 10) return "#22c55e";
-    if (secondsLeft > 5) return "#eab308";
+    if (secondsLeft > 30) return "#22c55e";
+    if (secondsLeft > 10) return "#eab308";
     return "#ef4444";
   };
 
-  const progress = secondsLeft / 30;
+  const progress = secondsLeft / 120;
   const circumference = 2 * Math.PI * 45;
   const strokeDashoffset = circumference * (1 - progress);
+
+  // Format as M:SS
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = secondsLeft % 60;
+  const timeDisplay = `${minutes}:${seconds.toString().padStart(2, "0")}`;
 
   return (
     <div className="flex flex-col items-center gap-8">
@@ -77,7 +82,7 @@ export default function CodigoRotativo({ sessionId, initialToken, phase }: Codig
             <circle cx="50" cy="50" r="45" fill="none" stroke={getTimerColor()} strokeWidth="6" strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className="transition-all duration-1000 ease-linear" />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-3xl sm:text-4xl font-mono font-bold" style={{ color: getTimerColor() }}>{secondsLeft}</span>
+            <span className="text-2xl sm:text-3xl font-mono font-bold" style={{ color: getTimerColor() }}>{timeDisplay}</span>
           </div>
         </div>
       </div>

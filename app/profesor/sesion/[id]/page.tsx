@@ -11,7 +11,7 @@ export default function SessionProjectorPage() {
   const sessionId = params.id as string;
   const { session, entradaCount, salidaCount, loading } = useRealtimeSession(sessionId);
   const [changingPhase, setChangingPhase] = useState(false);
-  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [showCloseOptions, setShowCloseOptions] = useState(false);
   const [closing, setClosing] = useState(false);
 
   async function handleChangePhase() {
@@ -30,14 +30,14 @@ export default function SessionProjectorPage() {
     finally { setChangingPhase(false); }
   }
 
-  async function handleClose() {
+  async function handleClose(skipSalida: boolean) {
     if (closing) return;
     setClosing(true);
     try {
       const response = await fetch("/api/session/close", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
+        body: JSON.stringify({ sessionId, skipSalida }),
       });
       const data = await response.json();
       if (data.success) router.push("/profesor");
@@ -71,16 +71,68 @@ export default function SessionProjectorPage() {
         <CodigoRotativo sessionId={sessionId} initialToken={session.activeToken} phase={session.phase as "entrada" | "salida"} />
       </div>
       <div className="px-6 py-4 border-t border-white/10">
-        <div className="flex items-center justify-center gap-4 max-w-lg mx-auto">
-          <button onClick={handleChangePhase} disabled={changingPhase} className={`flex-1 py-3 px-6 font-bold rounded-lg transition-colors ${session.phase === "entrada" ? "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/30" : "bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30"} disabled:opacity-50`}>
-            {changingPhase ? "Cambiando..." : session.phase === "entrada" ? "Cambiar a Salida →" : "← Cambiar a Entrada"}
-          </button>
-          {!showCloseConfirm ? (
-            <button onClick={() => setShowCloseConfirm(true)} className="py-3 px-6 bg-red-500/20 text-red-400 border border-red-500/30 font-bold rounded-lg hover:bg-red-500/30 transition-colors">Cerrar Clase</button>
-          ) : (
-            <div className="flex gap-2">
-              <button onClick={handleClose} disabled={closing} className="py-3 px-4 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:opacity-50">{closing ? "Cerrando..." : "Sí, cerrar"}</button>
-              <button onClick={() => setShowCloseConfirm(false)} className="py-3 px-4 bg-white/10 text-white rounded-lg hover:bg-white/20">Cancelar</button>
+        <div className="flex flex-col items-center gap-3 max-w-lg mx-auto">
+          {/* Main controls row */}
+          <div className="flex items-center justify-center gap-4 w-full">
+            {session.phase === "entrada" && (
+              <button
+                onClick={handleChangePhase}
+                disabled={changingPhase}
+                className="flex-1 py-3 px-6 font-bold rounded-lg transition-colors bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 hover:bg-yellow-500/30 disabled:opacity-50"
+              >
+                {changingPhase ? "Cambiando..." : "Tomar Salida →"}
+              </button>
+            )}
+            {session.phase === "salida" && (
+              <button
+                onClick={handleChangePhase}
+                disabled={changingPhase}
+                className="flex-1 py-3 px-6 font-bold rounded-lg transition-colors bg-green-500/20 text-green-400 border border-green-500/30 hover:bg-green-500/30 disabled:opacity-50"
+              >
+                {changingPhase ? "Cambiando..." : "← Volver a Entrada"}
+              </button>
+            )}
+
+            {!showCloseOptions ? (
+              <button
+                onClick={() => setShowCloseOptions(true)}
+                className="py-3 px-6 bg-red-500/20 text-red-400 border border-red-500/30 font-bold rounded-lg hover:bg-red-500/30 transition-colors"
+              >
+                Cerrar Clase
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowCloseOptions(false)}
+                className="py-3 px-4 bg-white/10 text-white rounded-lg hover:bg-white/20"
+              >
+                Cancelar
+              </button>
+            )}
+          </div>
+
+          {/* Close options */}
+          {showCloseOptions && (
+            <div className="w-full bg-white/5 rounded-xl p-4 border border-white/10 space-y-3">
+              <p className="text-white/70 text-sm text-center">¿Cómo quieres cerrar la clase?</p>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={() => handleClose(true)}
+                  disabled={closing}
+                  className="flex-1 py-3 px-4 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+                >
+                  {closing ? "Cerrando..." : "✅ Cerrar con asistencia completa"}
+                </button>
+                <button
+                  onClick={() => handleClose(false)}
+                  disabled={closing}
+                  className="flex-1 py-3 px-4 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 text-sm"
+                >
+                  {closing ? "Cerrando..." : "⚠️ Cerrar sin completar salida"}
+                </button>
+              </div>
+              <p className="text-white/40 text-xs text-center">
+                &quot;Con asistencia completa&quot; registra automáticamente la salida a todos los alumnos que hicieron entrada
+              </p>
             </div>
           )}
         </div>

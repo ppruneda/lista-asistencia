@@ -12,7 +12,6 @@ function generateToken(): string {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify professor auth
     const sessionCookie = request.cookies.get("__session");
     if (!sessionCookie?.value) {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -36,10 +35,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Generate new token for the new phase
     const token = generateToken();
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 30 * 1000);
+    const expiresAt = new Date(now.getTime() + 120 * 1000); // 2 minutos
 
     await adminDb.collection("sessions").doc(sessionId).update({
       phase,
