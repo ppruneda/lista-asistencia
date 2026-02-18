@@ -13,9 +13,13 @@ export default function AlumnosPage() {
   const [search, setSearch] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
   const [newCuenta, setNewCuenta] = useState("");
   const [newName, setNewName] = useState("");
   const [addingStudent, setAddingStudent] = useState(false);
+  const [mergingFrom, setMergingFrom] = useState("");
+  const [mergingTo, setMergingTo] = useState("");
+  const [merging, setMerging] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   async function loadStudents() {
@@ -84,6 +88,40 @@ export default function AlumnosPage() {
     }
   }
 
+  async function handleMerge(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mergingFrom || !mergingTo) return;
+
+    const confirmMsg = `¿Transferir todos los registros de la cuenta ${mergingFrom} a la cuenta ${mergingTo}?\n\nLa cuenta ${mergingFrom} será eliminada después de transferir.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setMerging(true);
+    setMessage(null);
+
+    try {
+      const response = await fetch("/api/students/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fromCuenta: mergingFrom, toCuenta: mergingTo }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setMessage({ type: "success", text: result.message });
+        setMergingFrom("");
+        setMergingTo("");
+        setShowMerge(false);
+        await loadStudents();
+      } else {
+        setMessage({ type: "error", text: result.error || "Error al fusionar" });
+      }
+    } catch {
+      setMessage({ type: "error", text: "Error al fusionar registros" });
+    } finally {
+      setMerging(false);
+    }
+  }
+
   async function handleResetFingerprints(cuenta: string, name: string) {
     const confirm = window.confirm(
       `¿Resetear los dispositivos de ${name}? Tendrá que registrarse de nuevo desde su celular.`
@@ -99,7 +137,6 @@ export default function AlumnosPage() {
     }
   }
 
-  // Filter students by search
   const filtered = students.filter((s) => {
     const term = search.toLowerCase();
     return s.name.toLowerCase().includes(term) || s.cuenta.includes(term);
@@ -139,6 +176,7 @@ export default function AlumnosPage() {
           onClick={() => {
             setShowUpload(!showUpload);
             setShowAddForm(false);
+            setShowMerge(false);
           }}
           className="px-4 py-2 bg-navy text-cream font-medium rounded-lg hover:bg-opacity-90 transition-colors text-sm"
         >
@@ -148,10 +186,21 @@ export default function AlumnosPage() {
           onClick={() => {
             setShowAddForm(!showAddForm);
             setShowUpload(false);
+            setShowMerge(false);
           }}
           className="px-4 py-2 bg-gold text-navy font-medium rounded-lg hover:bg-opacity-90 transition-colors text-sm"
         >
           ➕ Agregar individual
+        </button>
+        <button
+          onClick={() => {
+            setShowMerge(!showMerge);
+            setShowUpload(false);
+            setShowAddForm(false);
+          }}
+          className="px-4 py-2 bg-white text-navy border border-navy/20 font-medium rounded-lg hover:bg-navy/5 transition-colors text-sm"
+        >
+          🔀 Corregir / Fusionar
         </button>
       </div>
 
@@ -191,6 +240,52 @@ export default function AlumnosPage() {
               className="px-6 py-3 bg-navy text-cream font-bold rounded-lg disabled:opacity-40"
             >
               {addingStudent ? "..." : "Agregar"}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Merge/Correct section */}
+      {showMerge && (
+        <div className="bg-white rounded-xl p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-navy mb-2">Corregir / Fusionar registros</h2>
+          <p className="text-gray-500 text-sm mb-4">
+            Si un alumno se registró con un número de cuenta incorrecto, transfiere sus asistencias a la cuenta correcta. La cuenta incorrecta será eliminada.
+          </p>
+          <form onSubmit={handleMerge} className="space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3 items-center">
+              <div className="flex-1 w-full">
+                <label className="block text-xs text-gray-500 mb-1">Cuenta incorrecta (origen)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={mergingFrom}
+                  onChange={(e) => setMergingFrom(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="Ej: 99999999"
+                  required
+                  className="w-full px-4 py-3 border border-red-200 bg-red-50 rounded-lg text-navy focus:ring-2 focus:ring-gold outline-none font-mono"
+                />
+              </div>
+              <span className="text-2xl text-gray-400 hidden sm:block">→</span>
+              <div className="flex-1 w-full">
+                <label className="block text-xs text-gray-500 mb-1">Cuenta correcta (destino)</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={mergingTo}
+                  onChange={(e) => setMergingTo(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="Ej: 31612345"
+                  required
+                  className="w-full px-4 py-3 border border-green-200 bg-green-50 rounded-lg text-navy focus:ring-2 focus:ring-gold outline-none font-mono"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={merging || mergingFrom.length < 8 || mergingTo.length < 8 || mergingFrom === mergingTo}
+              className="w-full py-3 bg-navy text-cream font-bold rounded-lg disabled:opacity-40"
+            >
+              {merging ? "Fusionando..." : "Transferir registros"}
             </button>
           </form>
         </div>

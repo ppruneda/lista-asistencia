@@ -9,65 +9,61 @@ interface FormCheckinProps {
   label: string;
 }
 
-interface AttendanceInfo {
-  name: string;
-  attended: number;
-  partial: number;
-  total: number;
-  percentage: number;
-  remainingAbsences: number;
+interface StudentInfo {
+  exists: boolean;
+  name?: string;
+  attended?: number;
+  partial?: number;
+  total?: number;
+  percentage?: number;
+  remainingAbsences?: number;
 }
 
 export default function FormCheckin({ sessionId, phase, label }: FormCheckinProps) {
   const [codigo, setCodigo] = useState("");
   const [cuenta, setCuenta] = useState("");
-  const [nombre, setNombre] = useState("");
   const [fingerprint, setFingerprint] = useState("");
-  const [showNombre, setShowNombre] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [studentInfo, setStudentInfo] = useState<StudentInfo | null>(null);
+  const [confirmed, setConfirmed] = useState(false);
   const [result, setResult] = useState<{
     success: boolean;
     message: string;
   } | null>(null);
-  const [attendance, setAttendance] = useState<AttendanceInfo | null>(null);
 
-  // Generate fingerprint on mount
   useEffect(() => {
     const fp = generateFingerprint();
     setFingerprint(fp);
   }, []);
 
-  // Fetch attendance when cuenta has 8+ digits
-  const fetchAttendance = useCallback(async (cuentaValue: string) => {
+  const fetchStudent = useCallback(async (cuentaValue: string) => {
     if (!/^\d{8,10}$/.test(cuentaValue)) {
-      setAttendance(null);
+      setStudentInfo(null);
+      setConfirmed(false);
       return;
     }
+    setLookingUp(true);
     try {
-      const response = await fetch(
-        `/api/student/attendance?cuenta=${cuentaValue}`
-      );
+      const response = await fetch(`/api/student/attendance?cuenta=${cuentaValue}`);
       const data = await response.json();
-      if (data.exists) {
-        setAttendance(data);
-        setShowNombre(false);
-      } else {
-        setAttendance(null);
-        setShowNombre(true);
-      }
+      setStudentInfo(data);
+      setConfirmed(false);
     } catch {
-      // Silently fail - not critical
+      setStudentInfo(null);
+    } finally {
+      setLookingUp(false);
     }
   }, []);
 
   useEffect(() => {
     if (cuenta.length >= 8) {
-      fetchAttendance(cuenta);
+      fetchStudent(cuenta);
     } else {
-      setAttendance(null);
-      setShowNombre(false);
+      setStudentInfo(null);
+      setConfirmed(false);
     }
-  }, [cuenta, fetchAttendance]);
+  }, [cuenta, fetchStudent]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -81,7 +77,6 @@ export default function FormCheckin({ sessionId, phase, label }: FormCheckinProp
         body: JSON.stringify({
           token: codigo.toUpperCase().replace(/[^A-Z0-9]/g, ""),
           cuenta,
-          name: showNombre ? nombre : undefined,
           fingerprint,
           sessionId,
           phase,
@@ -89,22 +84,17 @@ export default function FormCheckin({ sessionId, phase, label }: FormCheckinProp
       });
 
       const data = await response.json();
+      setResult({ success: data.success, message: data.message });
 
-      if (data.needsName) {
-        setShowNombre(true);
-        setResult({ success: false, message: data.message });
-      } else {
-        setResult({ success: data.success, message: data.message });
-        if (data.success && data.attendance) {
-          setAttendance({
-            name: "",
-            attended: data.attendance.attended,
-            partial: data.attendance.partial,
-            total: data.attendance.total,
-            percentage: data.attendance.percentage,
-            remainingAbsences: 0,
-          });
-        }
+      if (data.success && data.attendance) {
+        setStudentInfo({
+          exists: true,
+          name: studentInfo?.name,
+          attended: data.attendance.attended,
+          partial: data.attendance.partial,
+          total: data.attendance.total,
+          percentage: data.attendance.percentage,
+        });
       }
     } catch {
       setResult({
@@ -116,7 +106,6 @@ export default function FormCheckin({ sessionId, phase, label }: FormCheckinProp
     }
   }
 
-  // Format codigo as user types (add dash after 4 chars)
   function handleCodigoChange(value: string) {
     const clean = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (clean.length <= 8) {
@@ -134,6 +123,13 @@ export default function FormCheckin({ sessionId, phase, label }: FormCheckinProp
     if (pct >= 60) return "text-yellow-600";
     return "text-red-600";
   };
+
+  const canSubmit =
+    codigo.length === 8 &&
+    cuenta.length >= 8 &&
+    studentInfo?.exists &&
+    confirmed &&
+    !loading;
 
   return (
     <div className="w-full max-w-sm mx-auto">
@@ -188,33 +184,79 @@ export default function FormCheckin({ sessionId, phase, label }: FormCheckinProp
           />
         </div>
 
-        {/* Nombre field (conditional) */}
-        {showNombre && (
-          <div>
-            <label className="block text-sm font-medium text-navy mb-1">
-              Nombre completo (primera vez)
-            </label>
-            <input
-              type="text"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              placeholder="Ej: García López María Fernanda"
-              required={showNombre}
-              className="w-full px-4 py-4 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-gold focus:border-gold outline-none text-navy"
-            />
+        {/* Student lookup result */}
+        {lookingUp && cuenta.length >= 8 && (
+          <div className="text-center text-gray-400 text-sm py-2">
+            Buscando alumno...
+          </div>
+        )}
+
+        {studentInfo && !studentInfo.exists && cuenta.length >= 8 && !lookingUp && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
+            <p className="text-red-700 font-medium text-sm">
+              ❌ Número de cuenta no encontrado
+            </p>
+            <p className="text-red-600 text-xs mt-1">
+              Tu cuenta debe estar registrada previamente. Si crees que es un error, contacta al profesor.
+            </p>
+          </div>
+        )}
+
+        {studentInfo?.exists && studentInfo.name && !confirmed && !lookingUp && (
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <p className="text-blue-800 text-sm text-center mb-3">
+              ¿Eres tú?
+            </p>
+            <p className="text-blue-900 font-bold text-lg text-center mb-3">
+              {studentInfo.name}
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setConfirmed(true)}
+                className="flex-1 py-2 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 text-sm"
+              >
+                ✅ Sí, soy yo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setCuenta("");
+                  setStudentInfo(null);
+                  setConfirmed(false);
+                }}
+                className="flex-1 py-2 bg-red-100 text-red-700 font-bold rounded-lg hover:bg-red-200 text-sm"
+              >
+                ❌ No, corregir
+              </button>
+            </div>
+          </div>
+        )}
+
+        {confirmed && studentInfo?.exists && studentInfo.name && (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-center">
+            <p className="text-green-700 text-sm">
+              ✅ <span className="font-bold">{studentInfo.name}</span>
+            </p>
           </div>
         )}
 
         {/* Submit button */}
         <button
           type="submit"
-          disabled={loading || codigo.length < 8 || cuenta.length < 8}
+          disabled={!canSubmit}
           className="w-full py-4 bg-navy text-cream font-bold text-lg rounded-xl hover:bg-opacity-90 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {loading
             ? "Registrando..."
             : `Registrar ${phase === "entrada" ? "Entrada" : "Salida"}`}
         </button>
+
+        {!studentInfo?.exists && cuenta.length >= 8 && !lookingUp && (
+          <p className="text-center text-gray-400 text-xs">
+            Debes estar registrado para tomar asistencia
+          </p>
+        )}
       </form>
 
       {/* Result message */}
@@ -232,22 +274,22 @@ export default function FormCheckin({ sessionId, phase, label }: FormCheckinProp
       )}
 
       {/* Attendance mini-card */}
-      {attendance && attendance.total > 0 && (
+      {studentInfo?.exists && studentInfo.total !== undefined && studentInfo.total > 0 && (
         <div className="mt-4 bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <p className="text-xs text-gray-500 text-center mb-2">
             Tu asistencia acumulada
           </p>
           <p
             className={`text-4xl font-bold text-center ${getPercentageColor(
-              attendance.percentage
+              studentInfo.percentage || 0
             )}`}
           >
-            {attendance.percentage}%
+            {studentInfo.percentage}%
           </p>
           <p className="text-sm text-gray-500 text-center mt-1">
-            {attendance.attended} completa{attendance.attended !== 1 ? "s" : ""},{" "}
-            {attendance.partial} parcial{attendance.partial !== 1 ? "es" : ""} de{" "}
-            {attendance.total} clase{attendance.total !== 1 ? "s" : ""}
+            {studentInfo.attended} completa{studentInfo.attended !== 1 ? "s" : ""},{" "}
+            {studentInfo.partial} parcial{studentInfo.partial !== 1 ? "es" : ""} de{" "}
+            {studentInfo.total} clase{studentInfo.total !== 1 ? "s" : ""}
           </p>
         </div>
       )}

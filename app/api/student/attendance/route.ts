@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 
     if (!cuenta || !/^\d{8,10}$/.test(cuenta)) {
       return NextResponse.json(
-        { error: "Número de cuenta inválido" },
+        { exists: false, message: "Cuenta inválida" },
         { status: 400 }
       );
     }
@@ -21,23 +21,19 @@ export async function GET(request: NextRequest) {
 
     const studentData = studentDoc.data()!;
 
-    // Get all records for this student
-    const recordsSnap = await adminDb
+    // Calculate attendance
+    const allRecords = await adminDb
       .collection("records")
       .where("cuenta", "==", cuenta)
       .get();
 
-    // Get closed sessions count
-    const closedSnap = await adminDb
+    const closedSessions = await adminDb
       .collection("sessions")
       .where("phase", "==", "closed")
       .get();
 
-    const totalClosed = closedSnap.size;
-
-    // Group records by session
     const sessionMap = new Map<string, Set<string>>();
-    recordsSnap.docs.forEach((doc) => {
+    allRecords.docs.forEach((doc) => {
       const data = doc.data();
       if (!sessionMap.has(data.sessionId)) {
         sessionMap.set(data.sessionId, new Set());
@@ -55,35 +51,31 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const missed = Math.max(0, totalClosed - attended - partial);
+    const total = closedSessions.size;
     const percentage =
-      totalClosed > 0
-        ? Math.round(((attended + partial * 0.5) / totalClosed) * 100)
+      total > 0
+        ? Math.round(((attended + partial * 0.5) / total) * 100)
         : 100;
 
-    // Calculate remaining absences (assuming 30 total classes and 80% minimum)
     const totalClasses = 30;
-    const minRequired = Math.ceil(totalClasses * 0.8);
     const currentCredits = attended + partial * 0.5;
-    const remainingAbsences = Math.max(
-      0,
-      Math.floor(totalClasses - minRequired - (totalClosed - currentCredits))
-    );
+    const maxMissable = totalClasses - Math.ceil(totalClasses * 0.8);
+    const currentMissed = total - currentCredits;
+    const remainingAbsences = Math.max(0, Math.floor(maxMissable - currentMissed));
 
     return NextResponse.json({
       exists: true,
       name: studentData.name,
       attended,
       partial,
-      missed,
-      total: totalClosed,
+      total,
       percentage,
       remainingAbsences,
     });
   } catch (error) {
-    console.error("Student attendance error:", error);
+    console.error("Error fetching attendance:", error);
     return NextResponse.json(
-      { error: "Error del servidor" },
+      { exists: false, error: "Error al consultar" },
       { status: 500 }
     );
   }

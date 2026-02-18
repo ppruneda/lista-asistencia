@@ -4,24 +4,7 @@ import { adminDb } from "@/lib/firebase-admin";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token, cuenta, name, fingerprint, sessionId, phase } = body;
-
-    if (!token || !cuenta || !fingerprint || !sessionId || !phase) {
-      return NextResponse.json(
-        { success: false, message: "Faltan campos requeridos" },
-        { status: 400 }
-      );
-    }
-
-cd ~/Desktop/lista-asistencia
-cat > app/api/checkin/route.ts << 'ENDOFFILE'
-import { NextRequest, NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase-admin";
-
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { token, cuenta, name, fingerprint, sessionId, phase } = body;
+    const { token, cuenta, fingerprint, sessionId, phase } = body;
 
     if (!token || !cuenta || !fingerprint || !sessionId || !phase) {
       return NextResponse.json(
@@ -54,7 +37,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 3. Token matches (this is the main security check)
+    // 3. Token matches
     if (sessionData.activeToken !== token) {
       return NextResponse.json(
         { success: false, message: "Código inválido o expirado. Verifica e intenta de nuevo." },
@@ -70,7 +53,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. No duplicate record
+    // 5. Student MUST exist (pre-registered via CSV or manually)
+    const studentDoc = await adminDb.collection("students").doc(cuenta).get();
+    if (!studentDoc.exists) {
+      return NextResponse.json(
+        { success: false, message: "Tu cuenta no está registrada. Contacta al profesor." },
+        { status: 400 }
+      );
+    }
+
+    const studentData = studentDoc.data()!;
+
+    // 6. No duplicate record
     const duplicateSnap = await adminDb
       .collection("records")
       .where("sessionId", "==", sessionId)
@@ -85,7 +79,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. No same device with different account
+    // 7. No same device with different account
     const deviceSnap = await adminDb
       .collection("records")
       .where("sessionId", "==", sessionId)
@@ -103,40 +97,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 7. Check student and fingerprint
-    const studentDoc = await adminDb.collection("students").doc(cuenta).get();
+    // 8. Check fingerprint
+    const fingerprints: string[] = studentData.fingerprints || [];
+    if (fingerprints.length >= 2 && !fingerprints.includes(fingerprint)) {
+      return NextResponse.json(
+        { success: false, message: "Dispositivo no reconocido. Contacta al profesor." },
+        { status: 400 }
+      );
+    }
 
-    if (studentDoc.exists) {
-      const studentData = studentDoc.data()!;
-      const fingerprints: string[] = studentData.fingerprints || [];
-
-      if (fingerprints.length >= 2 && !fingerprints.includes(fingerprint)) {
-        return NextResponse.json(
-          { success: false, message: "Dispositivo no reconocido. Contacta al profesor." },
-          { status: 400 }
-        );
-      }
-
-      if (!fingerprints.includes(fingerprint) && fingerprints.length < 2) {
-        await adminDb.collection("students").doc(cuenta).update({
-          fingerprints: [...fingerprints, fingerprint],
-        });
-      }
-    } else {
-      if (!name || name.trim().length === 0) {
-        return NextResponse.json(
-          { success: false, message: "Primera vez registrándote. Incluye tu nombre completo.", needsName: true },
-          { status: 400 }
-        );
-      }
-
-      await adminDb.collection("students").doc(cuenta).set({
-        cuenta,
-        name: name.trim(),
-        registeredAt: new Date(),
-        registeredVia: "self",
-        fingerprints: [fingerprint],
-        active: true,
+    // Add fingerprint if new and under limit
+    if (!fingerprints.includes(fingerprint) && fingerprints.length < 2) {
+      await adminDb.collection("students").doc(cuenta).update({
+        fingerprints: [...fingerprints, fingerprint],
       });
     }
 
