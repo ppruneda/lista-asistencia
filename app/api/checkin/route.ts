@@ -6,7 +6,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { token, cuenta, name, fingerprint, sessionId, phase } = body;
 
-    // Basic field validation
+    if (!token || !cuenta || !fingerprint || !sessionId || !phase) {
+      return NextResponse.json(
+        { success: false, message: "Faltan campos requeridos" },
+        { status: 400 }
+      );
+    }
+
+cd ~/Desktop/lista-asistencia
+cat > app/api/checkin/route.ts << 'ENDOFFILE'
+import { NextRequest, NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase-admin";
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { token, cuenta, name, fingerprint, sessionId, phase } = body;
+
     if (!token || !cuenta || !fingerprint || !sessionId || !phase) {
       return NextResponse.json(
         { success: false, message: "Faltan campos requeridos" },
@@ -33,34 +49,20 @@ export async function POST(request: NextRequest) {
     // 2. Phase matches
     if (sessionData.phase !== phase) {
       return NextResponse.json(
-        {
-          success: false,
-          message: `La clase está en fase de ${sessionData.phase}, no ${phase}`,
-        },
+        { success: false, message: `La clase está en fase de ${sessionData.phase}, no ${phase}` },
         { status: 400 }
       );
     }
 
-    // 3. Token matches
+    // 3. Token matches (this is the main security check)
     if (sessionData.activeToken !== token) {
       return NextResponse.json(
-        { success: false, message: "Código inválido o expirado" },
+        { success: false, message: "Código inválido o expirado. Verifica e intenta de nuevo." },
         { status: 400 }
       );
     }
 
-    // 4. Token not expired
-    const tokenExpiry = sessionData.tokenExpiresAt.toDate
-      ? sessionData.tokenExpiresAt.toDate()
-      : new Date(sessionData.tokenExpiresAt);
-    if (new Date() > tokenExpiry) {
-      return NextResponse.json(
-        { success: false, message: "Código expirado, espera el siguiente" },
-        { status: 400 }
-      );
-    }
-
-    // 5. Cuenta is numeric and 8-10 digits
+    // 4. Cuenta is numeric and 8-10 digits
     if (!/^\d{8,10}$/.test(cuenta)) {
       return NextResponse.json(
         { success: false, message: "Número de cuenta inválido (debe tener 8-10 dígitos)" },
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. No duplicate record (same session + cuenta + phase)
+    // 5. No duplicate record
     const duplicateSnap = await adminDb
       .collection("records")
       .where("sessionId", "==", sessionId)
@@ -78,15 +80,12 @@ export async function POST(request: NextRequest) {
       .get();
     if (!duplicateSnap.empty) {
       return NextResponse.json(
-        {
-          success: false,
-          message: `Ya registraste tu ${phase}`,
-        },
+        { success: false, message: `Ya registraste tu ${phase}` },
         { status: 400 }
       );
     }
 
-    // 7. No same device with different account in same session+phase
+    // 6. No same device with different account
     const deviceSnap = await adminDb
       .collection("records")
       .where("sessionId", "==", sessionId)
@@ -98,16 +97,13 @@ export async function POST(request: NextRequest) {
       const existingRecord = deviceSnap.docs[0].data();
       if (existingRecord.cuenta !== cuenta) {
         return NextResponse.json(
-          {
-            success: false,
-            message: "Este dispositivo ya registró otra cuenta en esta sesión",
-          },
+          { success: false, message: "Este dispositivo ya registró otra cuenta en esta sesión" },
           { status: 400 }
         );
       }
     }
 
-    // 8. Check student and fingerprint
+    // 7. Check student and fingerprint
     const studentDoc = await adminDb.collection("students").doc(cuenta).get();
 
     if (studentDoc.exists) {
@@ -116,37 +112,24 @@ export async function POST(request: NextRequest) {
 
       if (fingerprints.length >= 2 && !fingerprints.includes(fingerprint)) {
         return NextResponse.json(
-          {
-            success: false,
-            message: "Dispositivo no reconocido. Contacta al profesor.",
-          },
+          { success: false, message: "Dispositivo no reconocido. Contacta al profesor." },
           { status: 400 }
         );
       }
 
-      // Add fingerprint if new and under limit
       if (!fingerprints.includes(fingerprint) && fingerprints.length < 2) {
-        await adminDb
-          .collection("students")
-          .doc(cuenta)
-          .update({
-            fingerprints: [...fingerprints, fingerprint],
-          });
+        await adminDb.collection("students").doc(cuenta).update({
+          fingerprints: [...fingerprints, fingerprint],
+        });
       }
     } else {
-      // Student doesn't exist — need name for registration
       if (!name || name.trim().length === 0) {
         return NextResponse.json(
-          {
-            success: false,
-            message: "Primera vez registrándote. Incluye tu nombre completo.",
-            needsName: true,
-          },
+          { success: false, message: "Primera vez registrándote. Incluye tu nombre completo.", needsName: true },
           { status: 400 }
         );
       }
 
-      // Create student
       await adminDb.collection("students").doc(cuenta).set({
         cuenta,
         name: name.trim(),
@@ -168,7 +151,7 @@ export async function POST(request: NextRequest) {
       tokenUsed: token,
     });
 
-    // Calculate student attendance
+    // Calculate attendance
     const allRecords = await adminDb
       .collection("records")
       .where("cuenta", "==", cuenta)
@@ -179,7 +162,6 @@ export async function POST(request: NextRequest) {
       .where("phase", "==", "closed")
       .get();
 
-    // Count sessions with both entrada and salida
     const sessionMap = new Map<string, Set<string>>();
     allRecords.docs.forEach((doc) => {
       const data = doc.data();
@@ -207,12 +189,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `${phaseLabel} registrada correctamente`,
-      attendance: {
-        attended,
-        partial,
-        total,
-        percentage,
-      },
+      attendance: { attended, partial, total, percentage },
     });
   } catch (error) {
     console.error("Checkin error:", error);
