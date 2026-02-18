@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase-admin";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
-    // Search for "entrada" phase first, then "salida"
     let snapshot = await adminDb
       .collection("sessions")
       .where("phase", "==", "entrada")
@@ -19,7 +21,9 @@ export async function GET() {
     }
 
     if (snapshot.empty) {
-      return NextResponse.json({ active: false });
+      return NextResponse.json({ active: false }, {
+        headers: { "Cache-Control": "no-store, max-age=0" },
+      });
     }
 
     const doc = snapshot.docs[0];
@@ -30,12 +34,14 @@ export async function GET() {
       sessionId: doc.id,
       phase: data.phase,
       label: data.label,
+    }, {
+      headers: { "Cache-Control": "no-store, max-age=0" },
     });
   } catch (error) {
     console.error("Error getting active session:", error);
     return NextResponse.json(
       { error: "Error al buscar sesión activa" },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }
 }
