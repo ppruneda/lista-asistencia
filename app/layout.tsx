@@ -1,19 +1,21 @@
 import type { Metadata } from "next";
-import { Libre_Baskerville, JetBrains_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
-const libreBaskerville = Libre_Baskerville({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-serif",
-});
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-});
+
+const inter = Inter({ subsets: ["latin"] });
+
 export const metadata: Metadata = {
-  title: "Sistema de Asistencia — Sucesiones",
-  description: "Sistema de asistencia para la clase de Sucesiones, Facultad de Derecho, UNAM",
+  title: "Sistema de Control de Asistencia",
+  description: "Facultad de Derecho UNAM",
+  manifest: "/manifest.json",
+  themeColor: "#002147",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Asistencia",
+  },
 };
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -21,9 +23,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es">
-      <body className={`${libreBaskerville.variable} ${jetbrainsMono.variable} font-serif antialiased`}>
-        {children}
-      </body>
+      <head>
+        <link rel="apple-touch-icon" href="/icon-192.png" />
+      </head>
+      <body className={inter.className}>{children}</body>
     </html>
   );
 }
