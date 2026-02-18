@@ -3,11 +3,20 @@ import { adminDb } from "@/lib/firebase-admin";
 
 export async function GET() {
   try {
-    const snapshot = await adminDb
+    // Search for "entrada" phase first, then "salida"
+    let snapshot = await adminDb
       .collection("sessions")
-      .where("phase", "!=", "closed")
+      .where("phase", "==", "entrada")
       .limit(1)
       .get();
+
+    if (snapshot.empty) {
+      snapshot = await adminDb
+        .collection("sessions")
+        .where("phase", "==", "salida")
+        .limit(1)
+        .get();
+    }
 
     if (snapshot.empty) {
       return NextResponse.json({ active: false });
