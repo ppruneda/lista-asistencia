@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   getDoc,
+  deleteDoc,
   getDocs,
   setDoc,
   updateDoc,
@@ -244,3 +245,14 @@ export async function getRecordBySessionAndStudent(
     return null;
   }
 }
+
+export async function deleteRecord(id: string): Promise<boolean> {
+  try {
+    await deleteDoc(doc(db, "records", id));
+    return true;
+  } catch (e) {
+    console.error("deleteRecord error:", e);
+    return false;
+  }
+}
+
