@@ -14,12 +14,10 @@ export default function LoginPage() {
         e.preventDefault();
         setError("");
         setLoading(true);
-
+    let success = false;
       try {
               await signIn(email, password);
-              // Usar window.location.href en lugar de router.push para forzar
-          // una navegación completa que incluya la cookie de sesión
-          window.location.href = "/profesor";
+                          success = true;
       } catch (err: unknown) {
               const message =
                         err instanceof Error ? err.message : "Error desconocido";
@@ -31,8 +29,9 @@ export default function LoginPage() {
                         setError("Error al iniciar sesión. Intenta de nuevo.");
               }
       } finally {
-              setLoading(false);
+      if (!success) { setLoading(false); }
       }
+    if (success) { window.location.href = "/profesor"; }      
   }
 
   return (
@@ -41,10 +40,10 @@ export default function LoginPage() {
                       <div className="bg-white rounded-xl shadow-lg p-8">
                                 <h1 className="text-2xl font-bold text-navy text-center mb-1">
                                             Acceso Profesor
-                                </h1>h1>
+                                </h1>
                                 <p className="text-sm text-gray-500 text-center mb-6">
                                             Sistema de Asistencia — Sucesiones
-                                </p>p>
+                                </p>
                       
                                 <form onSubmit={handleSubmit} className="space-y-4">
                                             <div>
