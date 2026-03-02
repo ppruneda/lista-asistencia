@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set("__session", idToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
       maxAge: 60 * 60, // 1 hora
       path: "/",
     });
@@ -35,7 +35,7 @@ export async function DELETE() {
   response.cookies.set("__session", "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
     maxAge: 0,
     path: "/",
   });
