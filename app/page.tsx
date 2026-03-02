@@ -6,25 +6,25 @@ export default function Home() {
                     <div className="text-center max-w-lg">
                             <h1 className="text-3xl md:text-5xl font-bold text-navy mb-2">
                                       Sistema de Control de Asistencia
-                            </h1>h1>
+                            </h1>
                             <p className="text-xl text-gold font-serif mb-12">
                                       Facultad de Derecho UNAM
-                            </p>p>
+                            </p>
                             <div className="flex flex-col sm:flex-row gap-4 justify-center">
                                       <Link
                                                       href="/profesor"
                                                       className="px-8 py-4 bg-navy text-cream rounded-lg text-lg font-bold hover:bg-opacity-90 transition-all"
                                                     >
                                                   Profesor
-                                      </Link>Link>
+                                      </Link>
                                       <Link
                                                       href="/alumno"
                                                       className="px-8 py-4 bg-gold text-navy rounded-lg text-lg font-bold hover:bg-opacity-90 transition-all"
                                                     >
                                                   Alumno
-                                      </Link>Link>
-                            </div>div>
-                    </div>div>
-              </main>main>
+                                      </Link>
+                            </div>
+                    </div>
+              </main>
             );
 }</main>
