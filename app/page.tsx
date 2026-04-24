@@ -5,7 +5,7 @@ export default function Home() {
     <main className="min-h-screen flex flex-col items-center justify-center bg-cream px-4">
       <div className="text-center max-w-lg">
         <h1 className="text-3xl md:text-5xl font-bold text-navy mb-2">
-          Sistema de Control de Asistencia
+          Sistema de Control de Asistencia y Calificaciones
         </h1>
         <p className="text-xl text-gold font-serif mb-12">
           Facultad de Derecho UNAM
