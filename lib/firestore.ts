@@ -11,6 +11,7 @@ import {
   orderBy,
   writeBatch,
   Timestamp,
+  arrayUnion,
 } from "firebase/firestore";
 import { db } from "./firebase";
 import type { Student, Session, AttendanceRecord } from "@/types";
@@ -255,4 +256,77 @@ export async function deleteRecord(id: string): Promise<boolean> {
     return false;
   }
 }
+// ============ CALIFICACIONES ============
+import type { Calificaciones, NotaCualitativa } from "@/types";
+import { calcularDerivados, calificacionesVacias } from "./calificaciones";
 
+export async function getCalificaciones(cuenta: string): Promise<Calificaciones> {
+  try {
+    const snap = await getDoc(doc(db, "students", cuenta));
+    if (!snap.exists()) return calificacionesVacias();
+    const raw = (snap.data().calificaciones || {}) as Partial<Calificaciones>;
+    const merged: Calificaciones = {
+      ...calificacionesVacias(),
+      ...raw,
+      notas: (raw.notas || []).map((n) => ({
+        ...n,
+        fecha:
+          n.fecha instanceof Date
+            ? n.fecha
+            : ((n.fecha as unknown as Timestamp).toDate?.() ?? new Date()),
+      })) as NotaCualitativa[],
+    };
+    return calcularDerivados(merged);
+  } catch (e) {
+    console.error("getCalificaciones error:", e);
+    return calificacionesVacias();
+  }
+}
+
+export async function upsertCalificaciones(
+  cuenta: string,
+  c: Calificaciones
+): Promise<boolean> {
+  try {
+    const derivado = calcularDerivados(c);
+    const payload = {
+      calificaciones: {
+        parcial1: derivado.parcial1,
+        parcial2: derivado.parcial2,
+        examenFinal: derivado.examenFinal,
+        ajuste: derivado.ajuste,
+        notas: derivado.notas.map((n) => ({
+          ...n,
+          fecha: Timestamp.fromDate(n.fecha),
+        })),
+        finalDecimal: derivado.finalDecimal,
+        finalDecimalNP: derivado.finalDecimalNP,
+        sugeridaRedondeada: derivado.sugeridaRedondeada,
+        finalActa: derivado.finalActa,
+      },
+    };
+    await updateDoc(doc(db, "students", cuenta), payload);
+    return true;
+  } catch (e) {
+    console.error("upsertCalificaciones error:", e);
+    return false;
+  }
+}
+
+export async function addNotaCualitativa(
+  cuenta: string,
+  nota: NotaCualitativa
+): Promise<boolean> {
+  try {
+    await updateDoc(doc(db, "students", cuenta), {
+      "calificaciones.notas": arrayUnion({
+        ...nota,
+        fecha: Timestamp.fromDate(nota.fecha),
+      }),
+    });
+    return true;
+  } catch (e) {
+    console.error("addNotaCualitativa error:", e);
+    return false;
+  }
+}
