@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Sistema de Control de Asistencia",
+  title: "Sistema de Control de Asistencia y Calificaciones",
   description: "Facultad de Derecho UNAM",
 };
 
