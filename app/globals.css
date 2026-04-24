@@ -5,3 +5,44 @@ body {
   background-color: #FBF7EF;
   color: #002147;
 }
+
+@media print {
+  /* Ocultar navegación, botones y cualquier elemento marcado como no imprimible */
+  nav,
+  .no-print,
+  button {
+    display: none !important;
+  }
+
+  /* Fondo limpio */
+  html,
+  body {
+    background: white !important;
+  }
+
+  /* La zona imprimible ocupa toda la hoja */
+  .printable {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Ajustar la tabla para que quepa en horizontal */
+  .printable table {
+    font-size: 10px;
+  }
+
+  /* Evitar que las filas se corten a la mitad */
+  tr,
+  td,
+  th {
+    page-break-inside: avoid;
+  }
+
+  /* Orientación horizontal, más útil para el acta */
+  @page {
+    size: A4 landscape;
+    margin: 1cm;
+  }
+}
