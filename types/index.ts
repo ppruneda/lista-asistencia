@@ -6,6 +6,7 @@ export interface Student {
   registeredVia: "self" | "csv";
   fingerprints: string[];
   active: boolean;
+  calificaciones?: Calificaciones;
 }
 export interface Session {
   id: string;
@@ -56,4 +57,41 @@ export interface AppConfig {
   profesorName: string;
   profesorUid: string;
   semestre: string;
+}
+// ============ CALIFICACIONES ============
+
+export type NotaParcial = number | "NP" | null;
+
+export interface NotaCualitativa {
+  id: string;
+  fecha: Date;
+  texto: string;
+}
+
+export interface Calificaciones {
+  parcial1: NotaParcial;
+  parcial2: NotaParcial;
+  examenFinal: NotaParcial;
+  ajuste: number | null;
+  notas: NotaCualitativa[];
+  finalDecimal: number | null;
+  finalDecimalNP: boolean;
+  sugeridaRedondeada: number | null;
+  finalActa: number | null;
+}
+
+export interface GradeReportRow {
+  cuenta: string;
+  name: string;
+  percentage: number;
+  parcial1: NotaParcial;
+  parcial2: NotaParcial;
+  examenFinal: NotaParcial;
+  notas: NotaCualitativa[];
+  ajuste: number | null;
+  finalDecimal: number | null;
+  finalDecimalNP: boolean;
+  sugeridaRedondeada: number | null;
+  finalActa: number | null;
+  estatus: "promediado" | "final" | "pendiente" | "NP";
 }
