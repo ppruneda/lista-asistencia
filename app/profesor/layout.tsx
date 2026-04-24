@@ -8,7 +8,9 @@ import { signOut } from "@/lib/auth";
 const navItems = [
   { href: "/profesor", label: "Dashboard", icon: "📊" },
   { href: "/profesor/alumnos", label: "Alumnos", icon: "👥" },
-  { href: "/profesor/reportes", label: "Reportes", icon: "📋" },
+  { href: "/profesor/calificaciones", label: "Calificaciones", icon: "📝" },
+  { href: "/profesor/reportes", label: "Asistencia", icon: "📋" },
+  { href: "/profesor/reporte-final", label: "Reporte Final", icon: "🗂️" },
   { href: "/profesor/configuracion", label: "Configuración", icon: "⚙️" },
 ];
 
@@ -46,8 +48,8 @@ export default function ProfesorLayout({
           <div className="flex items-center justify-between h-16">
             {/* Logo / title */}
             <div className="flex items-center gap-3">
-              <Link href="/profesor" className="font-bold text-lg">
-                Sistema de Asistencia
+              <Link href="/profesor" className="font-bold text-base sm:text-lg">
+                Sistema de Control de Asistencia y Calificaciones
               </Link>
               <span className="hidden sm:inline text-gold text-sm">
                 Sucesiones — Prof. Pruneda
